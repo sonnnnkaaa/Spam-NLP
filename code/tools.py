@@ -1,4 +1,7 @@
+import sys
+import os
 import re
+import joblib
 from tensorflow.keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras import layers, Sequential
@@ -14,21 +17,32 @@ CV_EPOCHS = 10
 EPOCHS = 20
 N_CLASSES = 2
 
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 tf.random.set_seed(RANDOM_STATE)
+
 
 def text_preprocessing(text):
     text = text.lower()                   # lower register
     text = re.sub("[^a-zA-Z]", " ", text) # cleaning
     return text
 
-def tokenizing(data, text_col, tar_col, max_words=MAX_WORDS, max_len=MAX_LEN):
+
+def tokenizing(data, text_col, tar_col=None, max_words=MAX_WORDS, max_len=MAX_LEN, tokenizer_path=None):
     data[text_col] = data[text_col].apply(text_preprocessing)
-    tokenizer = Tokenizer(num_words=MAX_WORDS, oov_token="<OOV>") # tokenizer
-    tokenizer.fit_on_texts(data[text_col])                 # fitting tokenizer
+    if tokenizer_path:
+        tokenizer = joblib.load(tokenizer_path)
+    else:
+        tokenizer = Tokenizer(num_words=MAX_WORDS, oov_token="<OOV>") # tokenizer
+        tokenizer.fit_on_texts(data[text_col])                 # fitting tokenizer
+        joblib.dump(tokenizer, "../models/tokenizer.pk1")
     sequences = tokenizer.texts_to_sequences(data[text_col])                # sequences
     X = pad_sequences(sequences, maxlen=MAX_LEN, padding="post", truncating="post")
-    y = data[tar_col].values
-    return X, y
+    if tar_col:
+        y = data[tar_col].values
+        return X, y
+    return X, None
+
 
 def create_model():
     nlp_model = Sequential([
